@@ -1,28 +1,27 @@
 @echo off
-chcp 65001 >nul
 cd /d %~dp0
 
 echo ============================================
-echo   StoryForge 一键上传到 GitHub
+echo   StoryForge Upload to GitHub
 echo ============================================
 
-REM 1) 暂存所有改动
+REM Stage all changes
 git add -A
 
-REM 2) 提交（无改动则跳过）
-git commit -m "update: %date% %time%" || echo [跳过] 没有新的改动需要提交
+REM Commit (skip if nothing changed)
+git commit -m "update: %date% %time%" || echo [SKIP] No changes to commit
 
-REM 3) 首次使用：若还没有远程仓库，提示粘贴地址
+REM First time: set remote URL if not configured
 git remote get-url origin >nul 2>&1
 if %errorlevel% neq 0 (
-    set /p URL=首次使用，请粘贴你的 GitHub 仓库地址(如 https://github.com/用户名/仓库名.git): 
+    set /p URL=First time - paste your GitHub repo URL (e.g. https://github.com/user/repo.git): 
     git remote add origin %URL%
 )
 
-REM 4) 推送到 main 分支（首次会弹出 GitHub 登录/Token 窗口，之后自动记住）
+REM Push to main (first push will open GitHub login window)
 git push -u origin main
 
 echo ============================================
-echo   上传完成，按任意键关闭
+echo   Done! Press any key to close
 echo ============================================
 pause
