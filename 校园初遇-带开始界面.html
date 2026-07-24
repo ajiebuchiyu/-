@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>校园初遇</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; background:#000; overflow:hidden; font-family:"Microsoft YaHei",system-ui,sans-serif; }
+  #stage { position:relative; width:100vw; height:100vh; overflow:hidden; cursor:pointer; }
+  #bg { position:absolute; inset:0; background-size:cover; background-position:center; transition:opacity .5s ease; }
+  #weather { position:absolute; inset:0; pointer-events:none; z-index:2; }
+  .portrait { position:absolute; bottom:0; height:82%; transition:all .4s ease; z-index:3; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)); }
+  .portrait.left { left:6%; } .portrait.center { left:50%; transform:translateX(-50%); } .portrait.right { right:6%; }
+  #ph-fallback { position:absolute; bottom:0; width:280px; height:70%; border-radius:20px 20px 0 0; z-index:3; }
+  #dialogBox { position:absolute; left:5%; right:5%; bottom:5%; min-height:150px; background:rgba(12,14,22,.82);
+    border:1px solid rgba(124,92,255,.4); border-radius:16px; padding:20px 28px; z-index:5; backdrop-filter:blur(6px); }
+  #speaker { color:#5cc8ff; font-size:20px; font-weight:700; margin-bottom:10px; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+  #text { color:#f0f0f4; font-size:19px; line-height:1.8; text-shadow:0 2px 6px rgba(0,0,0,.7); white-space:pre-wrap; }
+  #choices { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:6; background:rgba(0,0,0,.35); }
+  .choice-btn { min-width:340px; padding:16px 28px; background:rgba(30,31,38,.9); border:1px solid rgba(124,92,255,.5);
+    color:#e6e6ea; font-size:18px; border-radius:12px; cursor:pointer; transition:all .2s; text-align:center; }
+  .choice-btn:hover { background:rgba(124,92,255,.35); transform:scale(1.03); }
+  #hint { position:absolute; right:24px; bottom:18px; color:rgba(255,255,255,.5); font-size:13px; z-index:5; animation:blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity:.2; } }
+  #endcard { position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:20px; z-index:9; background:#000; color:#fff; }
+  #endcard button { padding:12px 32px; background:#7c5cff; border:none; color:#fff; border-radius:10px; font-size:16px; cursor:pointer; }
+  .fall { position:absolute; top:-10%; z-index:2; opacity:.85; animation:fall linear infinite; }
+  @keyframes fall { to { transform:translateY(120vh) rotate(360deg); } }
+
+  /* ---- 游戏外壳：开始界面 / 菜单 / 设置 ---- */
+  .overlay { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; }
+  #startScreen { background:linear-gradient(135deg,#1a1130,#0d1a30 60%,#2a1a40); }
+  #startBg { position:absolute; inset:0; background-size:cover; background-position:center; }
+  #startInner { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:18px; padding:24px; text-align:center; }
+  #startTitle { font-size:46px; font-weight:800; color:#fff; text-shadow:0 2px 16px rgba(0,0,0,.7); }
+  #startSub { font-size:16px; color:rgba(255,255,255,.82); }
+  #startMenu { display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+  .start-btn { min-width:260px; padding:14px 24px; border-radius:12px; font-size:17px; color:#eef; cursor:pointer;
+    background:rgba(30,31,46,.8); border:1px solid rgba(124,92,255,.55); transition:all .2s; }
+  .start-btn:hover { background:rgba(124,92,255,.3); transform:scale(1.04); }
+  #menuBtn { position:fixed; left:16px; top:14px; z-index:15; width:38px; height:38px; border-radius:8px;
+    background:rgba(0,0,0,.35); color:rgba(255,255,255,.75); border:none; font-size:22px; cursor:pointer; display:none; }
+  #menuBtn:hover { background:rgba(0,0,0,.55); color:#fff; }
+  .panel-card { width:340px; background:rgba(22,23,32,.97); border:1px solid rgba(124,92,255,.4); border-radius:16px;
+    padding:24px; display:flex; flex-direction:column; gap:16px; color:#fff; }
+  .panel-title { text-align:center; font-weight:700; font-size:18px; }
+  .panel-sub { text-align:center; color:rgba(255,255,255,.6); font-size:13px; }
+  .menu-item { padding:12px; border-radius:10px; background:rgba(255,255,255,.06); border:none; color:#e6e6ea; font-size:15px; cursor:pointer; transition:all .2s; }
+  .menu-item:hover { background:rgba(124,92,255,.28); }
+  .slider-row { display:flex; flex-direction:column; gap:6px; }
+  .slider-row .lab { display:flex; justify-content:space-between; font-size:14px; color:#e6e6ea; }
+  .slider-row input[type=range] { width:100%; accent-color:#7c5cff; }
+  .toggle-row { display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+  .switch { width:44px; height:24px; border-radius:999px; background:#444; position:relative; cursor:pointer; border:none; transition:.2s; }
+  .switch.on { background:#7c5cff; }
+  .switch i { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.2s; }
+  .switch.on i { left:22px; }
+  .panel-actions { display:flex; gap:10px; margin-top:4px; }
+  .panel-actions button { flex:1; padding:10px; border-radius:10px; border:none; cursor:pointer; font-size:14px; }
+  .btn-ghost { background:rgba(255,255,255,.1); color:#e6e6ea; }
+  .btn-primary { background:#7c5cff; color:#fff; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg"></div>
+  <div id="weather"></div>
+  <div id="dialogBox">
+    <div id="speaker"></div>
+    <div id="text"></div>
+  </div>
+  <div id="choices"></div>
+  <div id="hint">点击继续 ▶</div>
+  <div id="endcard"><div style="font-size:28px">— 完 —</div><button onclick="location.reload()">重新开始</button></div>
+</div>
+<button id="menuBtn">≡</button>
+
+<!-- 开始界面 -->
+<div id="startScreen" class="overlay">
+  <div id="startBg"></div>
+  <div id="startInner">
+    <div id="startTitle"></div>
+    <div id="startSub"></div>
+    <div id="startMenu"></div>
+  </div>
+</div>
+
+<!-- 游戏内菜单 -->
+<div id="inGameMenu" class="overlay" style="display:none; background:rgba(0,0,0,.6)">
+  <div class="panel-card">
+    <div class="panel-title">菜单</div>
+    <button class="menu-item" id="igResume">继续游戏</button>
+    <button class="menu-item" id="igSettings">设置</button>
+    <button class="menu-item" id="igCredits">制作名单</button>
+    <button class="menu-item" id="igRestart" style="background:rgba(255,80,80,.18)">返回开始界面</button>
+  </div>
+</div>
+
+<!-- 设置 -->
+<div id="settingsPanel" class="overlay" style="display:none; background:rgba(0,0,0,.7)">
+  <div class="panel-card">
+    <div class="panel-title">设置</div>
+    <div class="slider-row"><div class="lab"><span>文字速度</span><span id="setSpeedVal"></span></div>
+      <input type="range" id="setSpeed" min="1" max="10" /></div>
+    <div class="slider-row"><div class="lab"><span>BGM 音量</span><span id="setBgmVal"></span></div>
+      <input type="range" id="setBgm" min="0" max="100" /></div>
+    <div class="slider-row"><div class="lab"><span>音效 / 语音 音量</span><span id="setSfxVal"></span></div>
+      <input type="range" id="setSfx" min="0" max="100" /></div>
+    <div class="toggle-row"><span>BGM 自动循环</span><button class="switch" id="setLoop"><i></i></button></div>
+    <div class="panel-actions">
+      <button class="btn-ghost" id="setBack">返回</button>
+      <button class="btn-primary" id="setSave">保存为默认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 制作名单 -->
+<div id="creditsPanel" class="overlay" style="display:none; background:rgba(0,0,0,.8)">
+  <div class="panel-card" style="align-items:center; text-align:center">
+    <div id="creditsTitle" style="font-size:24px; font-weight:800"></div>
+    <div class="panel-sub">制作名单</div>
+    <div id="creditsBody" style="font-size:14px; line-height:1.9; color:#e6e6ea"></div>
+    <button class="menu-item" id="creditsBack">返回</button>
+  </div>
+</div>
+
+<script>
+const PROJECT = {"id":"demo-school","title":"校园初遇","createdAt":1784867254017,"shell":{"enabled":true,"start":{"title":"校园初遇","subtitle":"一款由 StoryForge 创作的视觉小说","backgroundId":null,"showContinue":true,"menu":[{"id":"m_start","label":"开始游戏","action":"start"},{"id":"m_continue","label":"继续游戏","action":"continue"},{"id":"m_settings","label":"设置","action":"settings"},{"id":"m_credits","label":"制作名单","action":"credits"}]},"settings":{"textSpeed":6,"bgmVolume":70,"sfxVolume":80,"autoBgm":true}},"characters":[{"id":"c_shizuku","name":"雫","portraits":{"normal":"","smile":"","shy":""},"color":"#ff8fab"},{"id":"c_hero","name":"我","portraits":{"normal":""},"color":"#5cc8ff"}],"backgrounds":[{"id":"bg_gate","name":"school-gate.jpg","image":"","weather":"sakura","timeOfDay":"day"},{"id":"bg_class","name":"classroom.jpg","image":"","weather":"none","timeOfDay":"day"},{"id":"bg_roof","name":"rooftop.jpg","image":"","weather":"star","timeOfDay":"dusk"}],"audioTracks":[{"id":"bgm_spring","name":"春日序曲","type":"bgm","src":""},{"id":"sfx_bell","name":"上课铃","type":"sfx","src":""}],"variables":[{"id":"v_favor","name":"好感度","type":"number","initial":0}],"scenes":[[{"id":"k1","type":"bgSwitch","background":"bg_gate","text":"春天的校门口，樱花纷纷扬扬地落下。","goto":"k2"},{"id":"k2","type":"dialogue","speaker":"我","expression":"normal","position":"left","background":"bg_gate","text":"新学期的第一天……希望能有个好的开始。","goto":"k3"},{"id":"k3","type":"dialogue","speaker":"雫","expression":"smile","position":"right","background":"bg_gate","text":"啊，不好意思！可以借过一下吗？我快迟到了！","goto":"k4"},{"id":"k4","type":"dialogue","speaker":"我","expression":"normal","position":"left","background":"bg_gate","text":"（是个从没见过的女孩……）当然，请。","goto":"k5"},{"id":"k5","type":"choice","background":"bg_gate","text":"要不要叫住她？","choices":[{"label":"「等一下，你的书掉了！」","goto":"k6a"},{"label":"默默目送她离开","goto":"k6b"}]},{"id":"k6a","type":"dialogue","speaker":"雫","expression":"shy","position":"right","background":"bg_gate","text":"诶？啊……谢谢你！你人真好，我叫雫，请多指教！","variableOps":[{"varId":"v_favor","op":"add","value":10}],"goto":"k7"},{"id":"k6b","type":"dialogue","speaker":"我","expression":"normal","position":"left","background":"bg_gate","text":"（还是别打扰她了……）算了，快点去教室吧。","goto":"k7"},{"id":"k7","type":"transition","transition":{"kind":"fade","duration":600},"background":"bg_class","text":"——教室——","goto":"k8"},{"id":"k8","type":"dialogue","speaker":"雫","expression":"smile","position":"center","background":"bg_class","text":"没想到我们居然是同班同学！这一定是命运的安排吧？","goto":"k9"},{"id":"k9","type":"dialogue","speaker":"我","expression":"normal","position":"center","background":"bg_class","text":"看来，这将是个不平凡的春天。","goto":""}]]};
+
+(function(){
+  var cards = [];
+  (PROJECT.scenes||[]).forEach(function(sc){ (sc||[]).forEach(function(c){ cards.push(c); }); });
+  var byId = {}; cards.forEach(function(c){ byId[c.id] = c; });
+  var chars = {}; (PROJECT.characters||[]).forEach(function(c){ chars[c.name] = c; chars[c.id] = c; });
+  var bgs = {}; (PROJECT.backgrounds||[]).forEach(function(b){ bgs[b.id] = b; });
+  var vars = {}; (PROJECT.variables||[]).forEach(function(v){ vars[v.id] = v.initial; });
+
+  // 游戏外壳配置（向后兼容：旧工程可能无 shell）
+  var def = { enabled:true, start:{ title:PROJECT.title, subtitle:'一款由 StoryForge 创作的视觉小说', backgroundId:null, showContinue:true,
+      menu:[{id:'m_start',label:'开始游戏',action:'start'},{id:'m_continue',label:'继续游戏',action:'continue'},
+            {id:'m_settings',label:'设置',action:'settings'},{id:'m_credits',label:'制作名单',action:'credits'}] },
+    settings:{ textSpeed:6, bgmVolume:70, sfxVolume:80, autoBgm:true } };
+  var shell = PROJECT.shell || def;
+
+  var idx = 0;
+  var started = false;
+  var typing = false;
+  var typeTimer = null;
+  var lastBgmSrc = ''; var lastSfxSrc = '';
+
+  var el = { bg:g('bg'), weather:g('weather'), sp:g('speaker'), tx:g('text'),
+    box:g('dialogBox'), ch:g('choices'), hint:g('hint'), end:g('endcard') };
+  function g(id){ return document.getElementById(id); }
+
+  // 设置（玩家本地的偏好优先，其次用工程默认值）
+  var SKEY = 'sf_set_' + (PROJECT.id||'game');
+  var CKEY = 'sf_con_' + (PROJECT.id||'game');
+  function readSettings(){
+    try { var s = localStorage.getItem(SKEY); if(s) return JSON.parse(s); } catch(e){}
+    return null;
+  }
+  var settings = readSettings() || {
+    textSpeed: shell.settings.textSpeed, bgmVolume: shell.settings.bgmVolume,
+    sfxVolume: shell.settings.sfxVolume, autoBgm: shell.settings.autoBgm
+  };
+  function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch(e){} }
+  function saveContinue(){ try { localStorage.setItem(CKEY, String(idx)); } catch(e){} }
+  function readContinue(){ try { var v = localStorage.getItem(CKEY); if(v!==null) return parseInt(v,10); } catch(e){} return 0; }
+
+  // 双音轨
+  var bgmAudio = new Audio(); var sfxAudio = new Audio();
+  function playAudio(trackId){
+    var a = (PROJECT.audioTracks||[]).filter(function(t){ return t.id===trackId; })[0];
+    if(a && a.src){
+      var isBgm = (a.type==='bgm');
+      var node = isBgm ? bgmAudio : sfxAudio;
+      var last = isBgm ? lastBgmSrc : lastSfxSrc;
+      node.volume = ((isBgm ? settings.bgmVolume : settings.sfxVolume)/100) || 0;
+      node.loop = isBgm ? settings.autoBgm : false;
+      if(last !== a.src){ if(isBgm) lastBgmSrc=a.src; else lastSfxSrc=a.src; node.src = a.src; }
+      node.play().catch(function(){});
+    } else { bgmAudio.pause(); sfxAudio.pause(); }
+  }
+
+  function setBg(bgId){
+    var b = bgs[bgId]; if(!b){ return; }
+    el.bg.style.opacity = 0;
+    setTimeout(function(){
+      el.bg.style.backgroundImage = b.image ? 'url('+b.image+')' : 'linear-gradient(135deg,#2a2140,#1a2740)';
+      el.bg.style.opacity = 1;
+      setWeather(b.weather);
+    }, 250);
+  }
+  function setWeather(w){
+    el.weather.innerHTML='';
+    if(!w||w==='none') return;
+    var glyph = w==='sakura'?'🌸':w==='snow'?'❄️':w==='rain'?'|':w==='star'?'✦':'';
+    var n = w==='rain'?40:24;
+    for(var i=0;i<n;i++){
+      var d=document.createElement('div'); d.className='fall'; d.textContent=glyph;
+      d.style.left=(Math.random()*100)+'%';
+      d.style.fontSize=(w==='rain'?18:(10+Math.random()*16))+'px';
+      d.style.color = w==='rain'?'rgba(160,200,255,.6)':(w==='star'?'#ffe9a8':'#fff');
+      d.style.animationDuration=(3+Math.random()*4)+'s';
+      d.style.animationDelay=(-Math.random()*6)+'s';
+      el.weather.appendChild(d);
+    }
+  }
+  function clearPortraits(){ document.querySelectorAll('.portrait,#ph-fallback').forEach(function(p){p.remove();}); }
+  function showPortrait(card){
+    if(!card.speaker) return;
+    var ch = chars[card.speaker];
+    var pos = card.position||'center';
+    var src = ch && ch.portraits ? (ch.portraits[card.expression]||ch.portraits['normal']||Object.values(ch.portraits)[0]) : null;
+    if(src){
+      var img=document.createElement('img'); img.className='portrait '+pos; img.src=src; el.box.parentNode.insertBefore(img, el.box);
+    } else {
+      var d=document.createElement('div'); d.id='ph-fallback'; d.className='portrait '+pos;
+      d.style.background = (ch&&ch.color)||'#7c5cff'; el.box.parentNode.insertBefore(d, el.box);
+    }
+  }
+  function applyVarOps(card){
+    (card.variableOps||[]).forEach(function(op){
+      var cur = vars[op.varId];
+      if(op.op==='set') vars[op.varId]=op.value;
+      else if(op.op==='add') vars[op.varId]=(Number(cur)||0)+Number(op.value);
+      else if(op.op==='sub') vars[op.varId]=(Number(cur)||0)-Number(op.value);
+    });
+  }
+
+  function typeText(full){
+    if(typeTimer) clearInterval(typeTimer);
+    if(settings.textSpeed>=10 || !full){ el.tx.textContent=full; typing=false; el.hint.textContent='点击继续 ▶'; return; }
+    var delay = Math.max(8, (11-settings.textSpeed)*16);
+    typing=true; el.tx.textContent=''; el.hint.textContent='点击跳过 ▶';
+    var i=0;
+    typeTimer=setInterval(function(){
+      i++; el.tx.textContent=full.slice(0,i);
+      if(i>=full.length){ clearInterval(typeTimer); typing=false; el.hint.textContent='点击继续 ▶'; }
+    }, delay);
+  }
+
+  function render(){
+    if(idx>=cards.length){ el.end.style.display='flex'; return; }
+    var card = cards[idx];
+    applyVarOps(card);
+    if(card.background) setBg(card.background);
+    playAudio(card.music);
+    saveContinue();
+    if(card.type==='dialogue' || card.text){
+      clearPortraits(); showPortrait(card);
+      el.box.style.display='block';
+      el.sp.textContent = card.speaker||'';
+      typeText(card.text||'');
+      el.ch.style.display='none'; el.hint.style.display='block';
+    }
+    if(card.type==='choice' && card.choices && card.choices.length){
+      el.ch.innerHTML=''; el.ch.style.display='flex'; el.hint.style.display='none';
+      card.choices.forEach(function(opt){
+        var b=document.createElement('button'); b.className='choice-btn'; b.textContent=opt.label;
+        b.onclick=function(e){ e.stopPropagation(); goto(opt.goto); };
+        el.ch.appendChild(b);
+      });
+    }
+  }
+  function goto(id){
+    if(id && byId[id]!==undefined){ idx = cards.indexOf(byId[id]); }
+    else { idx++; }
+    el.ch.style.display='none'; render();
+  }
+  function next(){
+    if(!started) return;
+    var card = cards[idx];
+    if(card && card.type==='choice') return; // 等待选择
+    if(typing){ // 点击先补全文字
+      if(typeTimer) clearInterval(typeTimer);
+      el.tx.textContent = card ? (card.text||'') : '';
+      typing=false; el.hint.textContent='点击继续 ▶';
+      return;
+    }
+    if(card && card.goto && byId[card.goto]!==undefined){ idx = cards.indexOf(byId[card.goto]); }
+    else { idx++; }
+    render();
+  }
+  g('stage').addEventListener('click', next);
+  document.addEventListener('keydown', function(e){ if(e.key===' '||e.key==='Enter') next(); });
+
+  // ---------- 开始界面 / 菜单 / 设置 ----------
+  function show(id){ g(id).style.display='flex'; }
+  function hide(id){ g(id).style.display='none'; }
+
+  function openStart(){
+    started=false; show('startScreen'); hide('inGameMenu'); hide('settingsPanel'); hide('creditsPanel');
+    g('menuBtn').style.display='none';
+    g('startTitle').textContent = shell.start.title || PROJECT.title;
+    g('startSub').textContent = shell.start.subtitle || '';
+    var sBg = shell.start.backgroundId ? bgs[shell.start.backgroundId] : null;
+    g('startBg').style.backgroundImage = (sBg && sBg.image) ? 'url('+sBg.image+')' : 'none';
+    var menu = g('startMenu'); menu.innerHTML='';
+    (shell.start.menu||[]).forEach(function(m){
+      if(m.action==='continue' && !shell.start.showContinue) return;
+      var b=document.createElement('button'); b.className='start-btn'; b.textContent=m.label;
+      b.onclick=function(){ handleAction(m.action); };
+      menu.appendChild(b);
+    });
+  }
+  function handleAction(action){
+    if(action==='start'){ started=true; hide('startScreen'); g('menuBtn').style.display='block'; idx=0; render(); }
+    else if(action==='continue'){ started=true; hide('startScreen'); g('menuBtn').style.display='block'; idx=readContinue()||0; render(); }
+    else if(action==='settings'){ show('settingsPanel'); syncSettingsUI(); }
+    else if(action==='credits'){ show('creditsPanel'); }
+  }
+
+  // 设置面板
+  function syncSettingsUI(){
+    g('setSpeed').value=settings.textSpeed; g('setSpeedVal').textContent=settings.textSpeed+' / 10';
+    g('setBgm').value=settings.bgmVolume; g('setBgmVal').textContent=settings.bgmVolume+'%';
+    g('setSfx').value=settings.sfxVolume; g('setSfxVal').textContent=settings.sfxVolume+'%';
+    g('setLoop').className = 'switch' + (settings.autoBgm?' on':'');
+  }
+  g('setSpeed').addEventListener('input', function(){ settings.textSpeed=+this.value; g('setSpeedVal').textContent=this.value+' / 10'; });
+  g('setBgm').addEventListener('input', function(){ settings.bgmVolume=+this.value; g('setBgmVal').textContent=this.value+'%'; });
+  g('setSfx').addEventListener('input', function(){ settings.sfxVolume=+this.value; g('setSfxVal').textContent=this.value+'%'; });
+  g('setLoop').addEventListener('click', function(){ settings.autoBgm=!settings.autoBgm; this.className='switch'+(settings.autoBgm?' on':''); });
+  g('setBack').addEventListener('click', function(){ hide('settingsPanel'); });
+  g('setSave').addEventListener('click', function(){ saveSettings(); syncSettingsUI(); });
+
+  // 制作名单
+  g('creditsTitle').textContent = PROJECT.title || '';
+  g('creditsBody').innerHTML = '编剧 / 导演：'+(PROJECT.title||'作者')+' 的作者<br/>使用 <b>StoryForge</b> 创作并导出<br/><br/>角色 '+(PROJECT.characters?PROJECT.characters.length:0)+' · 场景 '+(PROJECT.backgrounds?PROJECT.backgrounds.length:0)+' · 音轨 '+(PROJECT.audioTracks?PROJECT.audioTracks.length:0);
+  g('creditsBack').addEventListener('click', function(){ hide('creditsPanel'); });
+
+  // 游戏内菜单
+  g('menuBtn').addEventListener('click', function(){ show('inGameMenu'); });
+  g('igResume').addEventListener('click', function(){ hide('inGameMenu'); });
+  g('igSettings').addEventListener('click', function(){ hide('inGameMenu'); show('settingsPanel'); syncSettingsUI(); });
+  g('igCredits').addEventListener('click', function(){ hide('inGameMenu'); show('creditsPanel'); });
+  g('igRestart').addEventListener('click', function(){ hide('inGameMenu'); openStart(); });
+
+  // 启动
+  if(shell.enabled){ openStart(); }
+  else { started=true; g('menuBtn').style.display='block'; render(); }
+})();
+
+</script>
+</body>
+</html>

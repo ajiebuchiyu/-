@@ -1,0 +1,14 @@
+node_modules/
+out/
+out-bak-*/
+out-old-*/
+web-dist/
+release/
+dist/
+.env
+*.log
+*.local
+.DS_Store
+_smoketest/
+electron.vite.config.*.mjs
+
